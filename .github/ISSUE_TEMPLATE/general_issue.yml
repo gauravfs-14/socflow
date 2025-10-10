@@ -1,0 +1,38 @@
+name: General Issue
+description: For questions, discussions, or other issues not covered by bug reports or feature requests
+title: "[General]: "
+labels: ["question"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reaching out! Please provide as much detail as possible to help us assist you.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      description: Please describe your issue, question, or concern
+      placeholder: Describe your issue or question...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any other context, examples, or information that might be helpful
+      placeholder: Any additional information that would help us understand your issue...
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: I have provided a clear description of my issue or question
+          required: true

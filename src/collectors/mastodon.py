@@ -4,7 +4,6 @@ import os
 from typing import Any, Dict, List, Optional
 
 from mastodon import Mastodon
-from tqdm import tqdm
 
 from ..models.mastodon import MastodonPost
 from .base import BaseCollector
@@ -173,7 +172,7 @@ class MastodonCollector(BaseCollector):
             # Search for posts with the hashtag
             search_results = client.timeline_hashtag(hashtag, limit=max_posts)
             
-            for status in tqdm(search_results, desc=f"Searching for #{hashtag}"):
+            for status in search_results:
                 try:
                     # Extract instance from client's api_base_url
                     instance = client.api_base_url.replace('https://', '').replace('http://', '')
@@ -207,7 +206,7 @@ class MastodonCollector(BaseCollector):
             # Get public timeline
             timeline = client.timeline_public(limit=max_posts)
             
-            for status in tqdm(timeline, desc="Collecting public timeline"):
+            for status in timeline:
                 try:
                     # Extract instance from client's api_base_url
                     instance = client.api_base_url.replace('https://', '').replace('http://', '')
@@ -253,7 +252,7 @@ class MastodonCollector(BaseCollector):
                     limit=max_posts
                 )
                 
-                for status in tqdm(user_posts, desc=f"Collecting posts from {handle}"):
+                for status in user_posts:
                     try:
                         post = MastodonPost.from_mastodon_status(status, instance)
                         posts.append(post)

@@ -115,15 +115,18 @@ class SocFlowTUI:
                     time.sleep(5)
                     continue
                 
+                # Update status to show we're starting collection
+                self._update_stats(platform, 0, "Collecting...")
+                
                 # Collect posts
                 posts = collector.collect_continuous(**kwargs)
                 
                 if posts:
                     # Save to database
                     self.app.db_manager.insert_posts(posts)
-                    self._update_stats(platform, len(posts), f"Collected {len(posts)} posts")
+                    self._update_stats(platform, len(posts), f"Active - {len(posts)} posts")
                 else:
-                    self._update_stats(platform, 0, "No new posts")
+                    self._update_stats(platform, 0, "Active - No new posts")
                 
                 # Small delay between collections
                 time.sleep(5)
@@ -140,7 +143,7 @@ class SocFlowTUI:
         if 'reddit' in self.app.collectors:
             reddit_thread = threading.Thread(
                 target=self._collect_platform,
-                args=('reddit', self.app.collectors['reddit'], {}),
+                args=('reddit', self.app.collectors['reddit'], {'subreddits': ['all']}),
                 daemon=True
             )
             reddit_thread.start()

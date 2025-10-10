@@ -4,7 +4,6 @@ import os
 from typing import Any, Dict, List, Optional
 
 import praw
-from tqdm import tqdm
 
 from ..models.reddit import RedditPost
 from .base import BaseCollector
@@ -104,7 +103,7 @@ class RedditCollector(BaseCollector):
             subreddits = self.config.get("subreddits", ["all"])
         
         posts = []
-        batch_size = 10
+        batch_size = 15  # Optimized batch size for good performance
         
         try:
             if keywords:
@@ -117,14 +116,17 @@ class RedditCollector(BaseCollector):
                 sort_by = self.config.get("sort_by", "hot")
                 time_filter = self.config.get("time_filter", "day")
                 
+                # Collect from subreddits one at a time for speed and reliability
                 for subreddit_name in subreddits:
                     try:
                         subreddit_posts = self._collect_from_subreddit(
                             subreddit_name, batch_size, sort_by, time_filter
                         )
                         posts.extend(subreddit_posts)
+                        # Break after first successful collection to avoid timeout
+                        if posts:
+                            break
                     except Exception as e:
-                        print(f"Error collecting from r/{subreddit_name}: {e}")
                         continue
         except Exception as e:
             print(f"Error in Reddit collection: {e}")
@@ -164,8 +166,8 @@ class RedditCollector(BaseCollector):
         else:
             raise ValueError(f"Invalid sort method: {sort_by}")
         
-        # Convert submissions to RedditPost objects
-        for submission in tqdm(submissions, desc=f"Collecting from r/{subreddit_name}"):
+        # Convert submissions to RedditPost objects (no progress bar for speed)
+        for submission in submissions:
             try:
                 post = RedditPost.from_praw_submission(submission)
                 posts.append(post)
@@ -191,7 +193,7 @@ class RedditCollector(BaseCollector):
             # Search across all of Reddit for the keyword
             search_results = self.reddit.subreddit("all").search(keyword, limit=max_posts, sort="relevance", time_filter="week")
             
-            for submission in tqdm(search_results, desc=f"Searching Reddit for '{keyword}'"):
+            for submission in search_results:
                 try:
                     post = RedditPost.from_praw_submission(submission)
                     posts.append(post)

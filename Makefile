@@ -33,6 +33,7 @@ help:
 	@echo "  setup-env       - Setup environment file"
 	@echo "  setup-config    - Setup configuration files"
 	@echo "  setup-credentials - Show how to configure API credentials"
+	@echo "  setup-db        - Create database tables"
 
 # Project setup
 setup: install setup-env setup-config
@@ -190,3 +191,4 @@ quick-start: setup
 	@echo "2. Run 'make collect-reddit' to test Reddit collection"
 	@echo "3. Run 'make stats' to see collected data"
 	@echo "4. Run 'make export-json' to export your data"
+

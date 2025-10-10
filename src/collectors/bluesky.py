@@ -4,7 +4,6 @@ import os
 from typing import Any, Dict, List, Optional
 
 from atproto import Client, models
-from tqdm import tqdm
 
 from ..models.bluesky import BlueskyPost
 from .base import BaseCollector
@@ -120,7 +119,7 @@ class BlueskyCollector(BaseCollector):
                 q=keyword
             )
             
-            for post_data in tqdm(search_results.posts, desc=f"Searching for '{keyword}'"):
+            for post_data in search_results.posts:
                 try:
                     post = BlueskyPost.from_atproto_record(post_data)
                     posts.append(post)
@@ -148,7 +147,7 @@ class BlueskyCollector(BaseCollector):
             # Get timeline
             timeline = self.client.app.bsky.feed.get_timeline()
             
-            for feed_item in tqdm(timeline.feed, desc="Collecting timeline posts"):
+            for feed_item in timeline.feed:
                 try:
                     if hasattr(feed_item, 'post') and feed_item.post:
                         post = BlueskyPost.from_atproto_record(feed_item.post)
@@ -187,7 +186,7 @@ class BlueskyCollector(BaseCollector):
                 limit=max_posts
             )
             
-            for feed_item in tqdm(user_posts.feed, desc=f"Collecting posts from {handle}"):
+            for feed_item in user_posts.feed:
                 try:
                     if hasattr(feed_item, 'post') and feed_item.post:
                         post = BlueskyPost.from_atproto_record(feed_item.post.record)

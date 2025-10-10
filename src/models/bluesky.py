@@ -17,7 +17,7 @@ class BlueskyMetrics(Metrics):
 
 
 class BlueskyPost(BasePost):
-    """Bluesky post model."""
+    """Bluesky post model - simplified."""
     
     platform: str = Field(default="bluesky", description="Platform identifier")
     handle: str = Field(description="User handle (e.g., @user.bsky.app)")
@@ -25,12 +25,8 @@ class BlueskyPost(BasePost):
     avatar_url: Optional[str] = None
     is_reply: bool = Field(default=False, description="Whether this is a reply")
     is_repost: bool = Field(default=False, description="Whether this is a repost")
-    is_quote: bool = Field(default=False, description="Whether this is a quote repost")
     reply_to: Optional[str] = None
     repost_of: Optional[str] = None
-    quote_of: Optional[str] = None
-    images: List[str] = Field(default_factory=list, description="Image URLs")
-    links: List[str] = Field(default_factory=list, description="Link URLs")
     metrics: BlueskyMetrics = Field(default_factory=BlueskyMetrics)
     
     @classmethod
@@ -67,12 +63,8 @@ class BlueskyPost(BasePost):
                 avatar_url=avatar_url,
                 is_reply=False,  # Simplified for now
                 is_repost=False,  # Simplified for now
-                is_quote=False,  # Simplified for now
                 reply_to=None,
                 repost_of=None,
-                quote_of=None,
-                images=[],  # Images not directly available in basic API response
-                links=[],  # Links not directly available in basic API response
                 url=f"https://bsky.app/profile/{handle}/post/{post_id}",
                 metrics=BlueskyMetrics(
                     likes=0,  # Default values
@@ -95,12 +87,8 @@ class BlueskyPost(BasePost):
                 avatar_url=None,
                 is_reply=False,
                 is_repost=False,
-                is_quote=False,
                 reply_to=None,
                 repost_of=None,
-                quote_of=None,
-                images=[],
-                links=[],
                 url="",
                 metrics=BlueskyMetrics(),
                 raw_data=str(post_view)

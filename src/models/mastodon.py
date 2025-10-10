@@ -17,7 +17,7 @@ class MastodonMetrics(BaseModel):
 
 
 class MastodonPost(BaseModel):
-    """Mastodon post model."""
+    """Mastodon post model - simplified."""
     
     # Essential fields only
     platform: str = Field(default="mastodon", description="Platform identifier")
@@ -25,13 +25,13 @@ class MastodonPost(BaseModel):
     author_handle: str = Field(description="Username or handle")
     text: str = Field(description="Post or comment text")
     created_at: datetime = Field(description="Timestamp")
-    tags: List[str] = Field(default_factory=list, description="Hashtags or communities")
+    tags: List[str] = Field(default_factory=list, description="Hashtags (empty for Mastodon)")
     url: Optional[str] = None
     parent_id: Optional[str] = None
     is_comment: bool = Field(default=False, description="Whether this is a comment")
     raw_data: Optional[Union[Dict[str, Any], str]] = None
     
-    # Mastodon-specific fields
+    # Mastodon-specific fields (only essential ones)
     instance: str = Field(description="Mastodon instance domain")
     handle: str = Field(description="User handle (e.g., @user@instance.com)")
     display_name: Optional[str] = None
@@ -39,13 +39,8 @@ class MastodonPost(BaseModel):
     is_reply: bool = Field(default=False, description="Whether this is a reply")
     is_reblog: bool = Field(default=False, description="Whether this is a reblog")
     is_sensitive: bool = Field(default=False, description="Whether this is marked as sensitive")
-    is_boosted: bool = Field(default=False, description="Whether this is boosted")
     reply_to: Optional[str] = None
     reblog_of: Optional[str] = None
-    language: Optional[str] = None
-    spoiler_text: Optional[str] = None
-    images: List[str] = Field(default_factory=list, description="Image URLs")
-    links: List[str] = Field(default_factory=list, description="Link URLs")
     metrics: MastodonMetrics = Field(default_factory=MastodonMetrics)
     
     class Config:
@@ -83,18 +78,7 @@ class MastodonPost(BaseModel):
         display_name = getattr(account, 'display_name', None) if account else None
         avatar_url = getattr(account, 'avatar', None) if account else None
         
-        # Extract media
-        media_attachments = getattr(status, 'media_attachments', [])
-        images = [getattr(media, 'url', "") for media in media_attachments if getattr(media, 'type', '') == "image"]
-        
-        # Extract links from text (basic implementation)
-        links = []
-        if "http" in text:
-            import re
-            url_pattern = r'https?://[^\s<>"]+'
-            links = re.findall(url_pattern, text)
-        
-        # Extract hashtags
+        # Extract hashtags (but don't store them for Mastodon)
         tags = []
         status_tags = getattr(status, 'tags', [])
         if status_tags:
@@ -108,7 +92,7 @@ class MastodonPost(BaseModel):
                 author_handle=handle,
                 text=text,
                 created_at=created_at_dt,
-                tags=tags,
+                tags=[],  # No tags for Mastodon
                 instance=instance,
                 handle=handle,
                 display_name=display_name,
@@ -116,13 +100,8 @@ class MastodonPost(BaseModel):
                 is_reply=bool(getattr(status, 'in_reply_to_id', None)),
                 is_reblog=bool(getattr(status, 'reblog', None)),
                 is_sensitive=getattr(status, 'sensitive', False),
-                is_boosted=bool(getattr(status, 'reblog', None)),
                 reply_to=str(getattr(status, 'in_reply_to_id', None)) if getattr(status, 'in_reply_to_id', None) else None,
                 reblog_of=str(getattr(getattr(status, 'reblog', {}), 'id', "")) if getattr(status, 'reblog', None) else None,
-                language=getattr(status, 'language', None),
-                spoiler_text=getattr(status, 'spoiler_text', None),
-                images=images,
-                links=links,
                 url=getattr(status, 'url', ""),
                 metrics=MastodonMetrics(
                     favourites=0,  # Simplified for now

@@ -18,41 +18,27 @@ class RedditMetrics(Metrics):
 
 
 class RedditPost(BasePost):
-    """Reddit post model."""
+    """Reddit post model - simplified."""
     
     platform: str = Field(default="reddit", description="Platform identifier")
     subreddit: str = Field(description="Subreddit name")
     title: str = Field(description="Post title")
-    flair: Optional[str] = None
-    is_self: bool = Field(default=True, description="Whether this is a self post")
     is_nsfw: bool = Field(default=False, description="Whether this is NSFW")
-    is_locked: bool = Field(default=False, description="Whether this is locked")
-    is_archived: bool = Field(default=False, description="Whether this is archived")
-    is_stickied: bool = Field(default=False, description="Whether this is stickied")
-    link_url: Optional[str] = None
-    domain: Optional[str] = None
     metrics: RedditMetrics = Field(default_factory=RedditMetrics)
     
     @classmethod
     def from_praw_submission(cls, submission: Any) -> "RedditPost":
-        """Create RedditPost from PRAW submission object."""
+        """Create RedditPost from PRAW submission object - simplified."""
         return cls(
             platform="reddit",
             object_id=submission.id,
             author_handle=submission.author.name if submission.author else "[deleted]",
             text=submission.selftext or submission.title,
             created_at=datetime.fromtimestamp(submission.created_utc),
-            tags=[submission.subreddit.display_name],
+            tags=[],  # No tags for Reddit
             subreddit=submission.subreddit.display_name,
             title=submission.title,
-            flair=submission.link_flair_text,
-            is_self=submission.is_self,
             is_nsfw=submission.over_18,
-            is_locked=submission.locked,
-            is_archived=submission.archived,
-            is_stickied=submission.stickied,
-            link_url=submission.url if not submission.is_self else None,
-            domain=submission.domain if not submission.is_self else None,
             url=f"https://reddit.com{submission.permalink}",
             metrics=RedditMetrics(
                 upvotes=submission.ups,
@@ -75,14 +61,14 @@ class RedditPost(BasePost):
     
     @classmethod
     def from_praw_comment(cls, comment: Any) -> "RedditPost":
-        """Create RedditPost from PRAW comment object."""
+        """Create RedditPost from PRAW comment object - simplified."""
         return cls(
             platform="reddit",
             object_id=comment.id,
             author_handle=comment.author.name if comment.author else "[deleted]",
             text=comment.body,
             created_at=datetime.fromtimestamp(comment.created_utc),
-            tags=[comment.subreddit.display_name],
+            tags=[],  # No tags for Reddit
             subreddit=comment.subreddit.display_name,
             title="",  # Comments don't have titles
             is_comment=True,

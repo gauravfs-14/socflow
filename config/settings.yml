@@ -23,6 +23,56 @@ collectors:
         "AskReddit",
         "todayilearned",
       ]
+    keywords:
+      [
+        "health",
+        "fitness",
+        "nutrition",
+        "wellness",
+        "mental health",
+        "sleep",
+        "exercise",
+        "diet",
+        "weight loss",
+        "weight gain",
+        "bodybuilding",
+        "strength training",
+        "cardio",
+        "yoga",
+        "meditation",
+        " mindfulness",
+        "stress",
+        "anxiety",
+        "depression",
+        "a",
+        "hello",
+        "goodbye",
+        "hello world",
+        "goodbye world",
+        "hello everyone",
+        "goodbye everyone",
+        "hello everyone",
+        "AI",
+        "artificial intelligence",
+        "machine learning",
+        "technology",
+        "innovation",
+        "startup",
+        "programming",
+        "software",
+        "data science",
+        "cybersecurity",
+        "blockchain",
+        "cryptocurrency",
+        "climate change",
+        "renewable energy",
+        "space",
+        "NASA",
+        "Tesla",
+        "Elon Musk",
+        "OpenAI",
+        "ChatGPT",
+      ]
     client_id: null # Set via environment variable REDDIT_CLIENT_ID
     client_secret: null # Set via environment variable REDDIT_CLIENT_SECRET
     user_agent: "SocFlow/1.0"
@@ -35,7 +85,50 @@ collectors:
     handle: null # Set via environment variable BLUESKY_HANDLE
     password: null # Set via environment variable BLUESKY_PASSWORD
     max_posts: 999999 # No practical limit - collect everything
-    keywords: [] # Empty - will use timeline feeds
+    keywords:
+      [
+        "AI",
+        "artificial intelligence",
+        "machine learning",
+        "technology",
+        "innovation",
+        "startup",
+        "programming",
+        "software",
+        "data science",
+        "cybersecurity",
+        "blockchain",
+        "cryptocurrency",
+        "climate change",
+        "renewable energy",
+        "space",
+        "NASA",
+        "Tesla",
+        "Elon Musk",
+        "OpenAI",
+        "ChatGPT",
+      ]
+    hashtags:
+      [
+        "AI",
+        "MachineLearning",
+        "Technology",
+        "Innovation",
+        "Startup",
+        "Programming",
+        "Software",
+        "DataScience",
+        "Cybersecurity",
+        "Blockchain",
+        "Crypto",
+        "ClimateChange",
+        "RenewableEnergy",
+        "Space",
+        "NASA",
+        "Tesla",
+        "OpenAI",
+        "ChatGPT",
+      ]
 
   mastodon:
     enabled: true

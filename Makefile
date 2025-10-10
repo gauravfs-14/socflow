@@ -136,6 +136,17 @@ collect-tui:
 	@echo "Press Ctrl+C to stop collection"
 	uv run python -m src.tui
 
+# TRUE PARALLEL collection using separate processes
+collect-parallel:
+	@echo "🚀 Starting TRUE PARALLEL collection using separate processes..."
+	@echo "This will start 3 separate processes for maximum parallelism"
+	@echo "Press Ctrl+C to stop all processes"
+	@trap 'pkill -f "uv run python -m src.main collect"; exit' INT; \
+	uv run python -m src.main collect --platforms reddit & \
+	uv run python -m src.main collect --platforms bluesky & \
+	uv run python -m src.main collect --platforms mastodon & \
+	wait
+
 
 # Data management
 stats:

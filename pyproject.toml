@@ -19,4 +19,5 @@ dependencies = [
     "mastodon.py>=1.8.0",
     "requests>=2.31.0",
     "rich>=14.2.0",
+    "websockets>=12.0",
 ]

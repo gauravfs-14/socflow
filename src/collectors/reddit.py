@@ -1,6 +1,7 @@
 """Reddit data collector."""
 
 import os
+import time
 from typing import Any, Dict, List, Optional
 
 import praw
@@ -86,11 +87,11 @@ class RedditCollector(BaseCollector):
         return posts
     
     def collect_continuous(self, subreddits: Optional[List[str]] = None, keywords: Optional[List[str]] = None, **kwargs) -> List[RedditPost]:
-        """Collect data continuously from Reddit.
+        """Collect data continuously from Reddit - collect ALL posts without keyword filtering.
         
         Args:
             subreddits: List of subreddits to collect from. If None, uses config default.
-            keywords: Optional keywords to search for. If provided, uses search API.
+            keywords: Ignored - we collect all posts regardless of keywords
             **kwargs: Additional collection parameters
             
         Returns:
@@ -103,33 +104,75 @@ class RedditCollector(BaseCollector):
             subreddits = self.config.get("subreddits", ["all"])
         
         posts = []
-        batch_size = 15  # Optimized batch size for good performance
+        batch_size = 50  # Increased batch size for better performance
         
         try:
-            if keywords:
-                # Use search API when keywords provided
-                for keyword in keywords:
-                    keyword_posts = self._search_by_keyword(keyword, batch_size)
-                    posts.extend(keyword_posts)
-            else:
-                # Use subreddit feeds when no keywords
-                sort_by = self.config.get("sort_by", "hot")
-                time_filter = self.config.get("time_filter", "day")
-                
-                # Collect from subreddits one at a time for speed and reliability
-                for subreddit_name in subreddits:
-                    try:
-                        subreddit_posts = self._collect_from_subreddit(
-                            subreddit_name, batch_size, sort_by, time_filter
-                        )
-                        posts.extend(subreddit_posts)
-                        # Break after first successful collection to avoid timeout
-                        if posts:
-                            break
-                    except Exception as e:
-                        continue
+            # Collect from multiple subreddits for comprehensive data
+            sort_by = self.config.get("sort_by", "hot")
+            time_filter = self.config.get("time_filter", "day")
+            
+            # Collect from all subreddits (no keyword filtering)
+            for subreddit_name in subreddits:
+                try:
+                    subreddit_posts = self._collect_from_subreddit(
+                        subreddit_name, batch_size, sort_by, time_filter
+                    )
+                    posts.extend(subreddit_posts)
+                    print(f"📝 Collected {len(subreddit_posts)} posts from r/{subreddit_name}")
+                    
+                    # Continue to next subreddit for more data
+                except Exception as e:
+                    print(f"Error collecting from r/{subreddit_name}: {e}")
+                    continue
+                    
         except Exception as e:
             print(f"Error in Reddit collection: {e}")
+        
+        return posts
+    
+    def _search_multiple_subreddits(self, subreddits: List[str], keywords: List[str], batch_size: int) -> List[RedditPost]:
+        """Search multiple subreddits with multiple keywords for maximum coverage.
+        
+        Args:
+            subreddits: List of subreddits to search
+            keywords: List of keywords to search for
+            batch_size: Number of posts per search
+            
+        Returns:
+            List of collected Reddit posts
+        """
+        posts = []
+        
+        # Rate limiting settings
+        max_requests_per_minute = 95
+        delay_between_requests = 60 / max_requests_per_minute  # ~0.63 seconds
+        
+        for subreddit_name in subreddits[:5]:  # Limit to first 5 subreddits
+            try:
+                sub = self.reddit.subreddit(subreddit_name)
+                for keyword in keywords[:10]:  # Limit to first 10 keywords for performance
+                    try:
+                        print(f"🔍 Searching '{keyword}' in r/{subreddit_name}...")
+                        search_results = sub.search(keyword, sort="new", limit=batch_size)
+                        
+                        for submission in search_results:
+                            try:
+                                post = RedditPost.from_praw_submission(submission)
+                                posts.append(post)
+                                # Rate limiting
+                                time.sleep(delay_between_requests)
+                            except Exception as e:
+                                print(f"Error processing post: {e}")
+                                continue
+                                
+                    except Exception as e:
+                        print(f"Error searching '{keyword}' in r/{subreddit_name}: {e}")
+                        time.sleep(10)  # Wait longer on error
+                        continue
+                        
+            except Exception as e:
+                print(f"Error accessing r/{subreddit_name}: {e}")
+                continue
         
         return posts
     

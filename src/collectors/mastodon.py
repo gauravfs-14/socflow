@@ -103,7 +103,7 @@ class MastodonCollector(BaseCollector):
             instances = self.config.get("instances", ["https://mastodon.social"])
         
         posts = []
-        batch_size = 10
+        batch_size = 15  # Increased batch size for better performance
         
         for instance in instances:
             if instance not in self.clients:

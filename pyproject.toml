@@ -31,3 +31,4 @@ packages = ["src"]
 
 [project.scripts]
 socflow = "src.main:cli"
+sf = "src.main:cli"

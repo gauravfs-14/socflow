@@ -649,7 +649,6 @@ def edit(ctx, path):
 
 
 @cli.command()
-@click.option('--config', '-c', help='Path to configuration file')
 @click.pass_context
 def tui(ctx):
     """Launch the Terminal User Interface for data collection."""

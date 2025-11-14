@@ -118,9 +118,10 @@ def load_settings(config_path: Optional[Union[str, Path]] = None) -> Settings:
     
     Args:
         config_path: Path to YAML configuration file. If None, looks for:
+            - Current directory: ./socflow.yml or ./.socflow/config.yml
             - User config: ~/.socflow/config.yml
-            - Dev config: ./config/settings.yml
-            - Default config: ./config/settings.default.yml
+            - Dev config: ./config/settings.yml (for development)
+            - Default config: ./config/settings.default.yml (for development)
     
     Returns:
         Settings object with loaded configuration
@@ -129,11 +130,16 @@ def load_settings(config_path: Optional[Union[str, Path]] = None) -> Settings:
     load_dotenv(override=True)
     
     if config_path is None:
+        # Get current working directory
+        cwd = Path.cwd()
+        
         # Try to find config file in order of preference
         possible_paths = [
+            cwd / "socflow.yml",  # Current directory config
+            cwd / ".socflow" / "config.yml",  # Current directory hidden config
             Path.home() / ".socflow" / "config.yml",  # User config
-            Path("config/settings.yml"),  # Dev config
-            Path("config/settings.default.yml"),  # Default config
+            Path("config/settings.yml"),  # Dev config (relative to project root)
+            Path("config/settings.default.yml"),  # Default config (relative to project root)
         ]
         
         for path in possible_paths:
@@ -164,10 +170,12 @@ def save_user_config(settings: Settings, user_config_path: Optional[Path] = None
     
     Args:
         settings: Settings object to save
-        user_config_path: Path to save user config. If None, uses ~/.socflow/config.yml
+        user_config_path: Path to save user config. If None, uses current directory socflow.yml
     """
     if user_config_path is None:
-        user_config_path = Path.home() / ".socflow" / "config.yml"
+        # Default to current directory
+        cwd = Path.cwd()
+        user_config_path = cwd / "socflow.yml"
     
     # Create directory if it doesn't exist
     user_config_path.parent.mkdir(parents=True, exist_ok=True)

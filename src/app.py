@@ -406,37 +406,6 @@ def collect_continuous(ctx, platforms, subreddits, keywords, hashtags, instances
 
 
 @cli.command()
-@click.option('--platforms', '-p', multiple=True, help='Platforms to collect from')
-@click.option('--subreddits', multiple=True, help='Subreddits to collect from')
-@click.option('--keywords', multiple=True, help='Keywords to search for')
-@click.option('--hashtags', multiple=True, help='Hashtags to search for')
-@click.option('--instances', multiple=True, help='Mastodon instances to collect from')
-@click.pass_context
-def collect_continuous(ctx, platforms, subreddits, keywords, hashtags, instances):
-    """Collect data continuously until interrupted."""
-    app = SocFlowApp(ctx.obj['config'])
-    
-    try:
-        # Build kwargs for platform-specific parameters
-        kwargs = {}
-        if subreddits:
-            kwargs['subreddits'] = list(subreddits)
-        if keywords:
-            kwargs['keywords'] = list(keywords)
-        if hashtags:
-            kwargs['hashtags'] = list(hashtags)
-        if instances:
-            kwargs['instances'] = list(instances)
-        
-        app.collect_continuously(platforms=list(platforms) if platforms else None, **kwargs)
-        
-    except Exception as e:
-        click.echo(f"Error: {e}", err=True)
-    finally:
-        app.close()
-
-
-@cli.command()
 @click.option('--platform', '-p', help='Platform to show stats for')
 @click.pass_context
 def stats(ctx, platform):
@@ -479,9 +448,16 @@ def export(ctx, output, platform):
         app.close()
 
 
-@cli.command()
+@cli.group()
 @click.pass_context
 def config(ctx):
+    """Manage configuration."""
+    pass
+
+
+@config.command()
+@click.pass_context
+def show(ctx):
     """Show current configuration."""
     app = SocFlowApp(ctx.obj['config'])
     
@@ -501,6 +477,186 @@ def config(ctx):
         click.echo(f"Error: {e}", err=True)
     finally:
         app.close()
+
+
+@config.command()
+@click.option('--path', '-p', help='Path to save config file (default: ./socflow.yml)')
+@click.pass_context
+def init(ctx, path):
+    """Initialize configuration file in current directory."""
+    from pathlib import Path
+    import yaml
+    
+    # Try to load default settings from file system (development mode)
+    config_data = None
+    default_config_path = Path(__file__).parent.parent.parent / "config" / "settings.default.yml"
+    
+    if default_config_path.exists():
+        try:
+            with open(default_config_path, 'r') as f:
+                config_data = yaml.safe_load(f)
+        except Exception:
+            pass
+    
+    # If not found, create default config
+    if config_data is None:
+        config_data = {
+            'app': {
+                'name': 'SocFlow',
+                'output_dir': 'data',
+                'log_level': 'INFO',
+                'debug': False
+            },
+            'database': {
+                'type': 'sqlite',
+                'path': 'data/socflow.db',
+                'separate_databases': False
+            },
+            'collectors': {
+                'reddit': {
+                    'enabled': True,
+                    'subreddits': ['all'],
+                    'user_agent': 'SocFlow/1.0',
+                    'max_posts_per_subreddit': 1000,
+                    'sort_by': 'hot',
+                    'time_filter': 'day'
+                },
+                'bluesky': {
+                    'enabled': True,
+                    'max_posts': 1000,
+                    'keywords': []
+                },
+                'mastodon': {
+                    'enabled': True,
+                    'instances': ['https://mastodon.social'],
+                    'max_posts_per_instance': 1000,
+                    'hashtags': []
+                }
+            }
+        }
+    
+    # Determine output path
+    if path:
+        output_path = Path(path)
+    else:
+        cwd = Path.cwd()
+        output_path = cwd / "socflow.yml"
+    
+    # Check if file already exists
+    if output_path.exists():
+        if not click.confirm(f"Config file {output_path} already exists. Overwrite?"):
+            click.echo("Cancelled.")
+            return
+    
+    # Save config
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, 'w') as f:
+        yaml.dump(config_data, f, default_flow_style=False, indent=2)
+    
+    click.echo(f"✅ Configuration file created at {output_path}")
+    click.echo("💡 Edit the file to configure API credentials and collection settings.")
+
+
+@config.command()
+@click.argument('key')
+@click.argument('value')
+@click.option('--path', '-p', help='Path to config file (default: ./socflow.yml)')
+@click.pass_context
+def set(ctx, key, value, path):
+    """Set a configuration value.
+    
+    Examples:
+        socflow config set app.log_level DEBUG
+        socflow config set database.path ./mydata/socflow.db
+        socflow config set collectors.reddit.enabled false
+    """
+    from pathlib import Path
+    import yaml
+    
+    # Determine config path
+    if path:
+        config_path = Path(path)
+    else:
+        cwd = Path.cwd()
+        config_path = cwd / "socflow.yml"
+    
+    if not config_path.exists():
+        click.echo(f"❌ Config file not found: {config_path}")
+        click.echo("💡 Run 'socflow config init' to create a config file.")
+        return
+    
+    # Load existing config
+    with open(config_path, 'r') as f:
+        config_data = yaml.safe_load(f) or {}
+    
+    # Set nested key (e.g., "app.log_level" -> config_data['app']['log_level'])
+    keys = key.split('.')
+    current = config_data
+    for k in keys[:-1]:
+        if k not in current:
+            current[k] = {}
+        current = current[k]
+    
+    # Convert value to appropriate type
+    final_key = keys[-1]
+    if value.lower() in ('true', 'false'):
+        value = value.lower() == 'true'
+    elif value.isdigit():
+        value = int(value)
+    elif value.replace('.', '', 1).isdigit():
+        value = float(value)
+    
+    current[final_key] = value
+    
+    # Save config
+    with open(config_path, 'w') as f:
+        yaml.dump(config_data, f, default_flow_style=False, indent=2)
+    
+    click.echo(f"✅ Set {key} = {value}")
+    click.echo(f"💡 Updated {config_path}")
+
+
+@config.command()
+@click.option('--path', '-p', help='Path to config file (default: ./socflow.yml)')
+@click.pass_context
+def edit(ctx, path):
+    """Edit configuration file in default editor."""
+    import os
+    import subprocess
+    from pathlib import Path
+    
+    # Determine config path
+    if path:
+        config_path = Path(path)
+    else:
+        cwd = Path.cwd()
+        config_path = cwd / "socflow.yml"
+    
+    if not config_path.exists():
+        click.echo(f"❌ Config file not found: {config_path}")
+        click.echo("💡 Run 'socflow config init' to create a config file.")
+        return
+    
+    # Get editor from environment or use default
+    editor = os.environ.get('EDITOR', 'nano')
+    
+    try:
+        subprocess.run([editor, str(config_path)])
+        click.echo(f"✅ Configuration file edited: {config_path}")
+    except FileNotFoundError:
+        click.echo(f"❌ Editor '{editor}' not found.")
+        click.echo(f"💡 Set EDITOR environment variable or edit manually: {config_path}")
+
+
+@cli.command()
+@click.option('--config', '-c', help='Path to configuration file')
+@click.pass_context
+def tui(ctx):
+    """Launch the Terminal User Interface for data collection."""
+    from .tui import SocFlowTUI
+    
+    tui = SocFlowTUI(ctx.obj.get('config'))
+    tui.run()
 
 
 if __name__ == "__main__":

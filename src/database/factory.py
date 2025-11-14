@@ -19,13 +19,22 @@ def create_database_manager(config: DatabaseConfig) -> DatabaseManager:
     Raises:
         ValueError: If database type is not supported
     """
+    from pathlib import Path
+    
     db_type = DatabaseType(config.type)
     
     if db_type == DatabaseType.SQLITE:
         if config.path:
-            connection_string = f"sqlite:///{config.path}"
+            # If path is relative, make it relative to current working directory
+            db_path = Path(config.path)
+            if not db_path.is_absolute():
+                db_path = Path.cwd() / db_path
+            connection_string = f"sqlite:///{db_path}"
         else:
-            connection_string = "sqlite:///data/socflow.db"
+            # Default to current working directory
+            cwd = Path.cwd()
+            db_path = cwd / "data" / "socflow.db"
+            connection_string = f"sqlite:///{db_path}"
         
         return SQLiteManager(
             connection_string=connection_string,

@@ -30,4 +30,4 @@ build-backend = "hatchling.build"
 packages = ["src"]
 
 [project.scripts]
-scoflow = "src.main:cli"
+socflow = "src.main:cli"

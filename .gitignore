@@ -228,3 +228,5 @@ Thumbs.db
 test_*.py
 *_test.py
 tests/temp/
+
+test/

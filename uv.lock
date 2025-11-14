@@ -817,7 +817,6 @@ dependencies = [
     { name = "mastodon-py" },
     { name = "pandas" },
     { name = "praw" },
-    { name = "pyarrow" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
@@ -829,6 +828,11 @@ dependencies = [
     { name = "websockets" },
 ]
 
+[package.optional-dependencies]
+parquet = [
+    { name = "pyarrow" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "atproto", specifier = ">=0.0.50" },
@@ -836,7 +840,7 @@ requires-dist = [
     { name = "mastodon-py", specifier = ">=1.8.0" },
     { name = "pandas", specifier = ">=2.0.0" },
     { name = "praw", specifier = ">=7.8.1" },
-    { name = "pyarrow", specifier = ">=10.0.0" },
+    { name = "pyarrow", marker = "extra == 'parquet'", specifier = ">=18.0.0" },
     { name = "pydantic", specifier = ">=2.12.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
@@ -847,6 +851,7 @@ requires-dist = [
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "websockets", specifier = ">=12.0" },
 ]
+provides-extras = ["parquet"]
 
 [[package]]
 name = "sqlalchemy"

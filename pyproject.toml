@@ -14,13 +14,15 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "tqdm>=4.67.1",
     "pandas>=2.0.0",
-    "pyarrow>=10.0.0",
     "atproto>=0.0.50",
     "mastodon.py>=1.8.0",
     "requests>=2.31.0",
     "rich>=14.2.0",
     "websockets>=12.0",
 ]
+
+[project.optional-dependencies]
+parquet = ["pyarrow>=18.0.0"]
 
 [build-system]
 requires = ["hatchling"]

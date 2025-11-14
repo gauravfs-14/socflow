@@ -296,6 +296,13 @@ class SocFlowApp:
             df = pd.DataFrame(posts)
             df.to_csv(output_path, index=False)
         elif output_path.suffix == ".parquet":
+            try:
+                import pyarrow
+            except ImportError:
+                raise ImportError(
+                    "pyarrow is required for Parquet export. "
+                    "Install it with: pip install pyarrow or pip install socflow[parquet]"
+                )
             import pandas as pd
             df = pd.DataFrame(posts)
             df.to_parquet(output_path, index=False)

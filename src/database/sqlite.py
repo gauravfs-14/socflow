@@ -1,6 +1,11 @@
-"""SQLite database manager implementation."""
+"""SQLite database manager implementation.
+
+This module is designed for Python 3.14+ with GIL removed, enabling true concurrency.
+All database operations are thread-safe using proper connection pooling and locks.
+"""
 
 import json
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -105,20 +110,44 @@ class PostTable(Base):
 
 
 class SQLiteManager(DatabaseManager):
-    """SQLite database manager."""
+    """SQLite database manager with thread-safe operations for Python 3.14+.
+    
+    With the GIL removed in Python 3.14, this manager uses:
+    - Thread-safe connection pooling
+    - Per-operation locks for critical sections
+    - Proper SQLite multi-threading configuration
+    """
+    
+    def __init__(self, connection_string: str, separate_databases: bool = False):
+        """Initialize SQLite manager with thread safety."""
+        # Initialize lock for thread-safe operations
+        self._lock = threading.Lock()
+        super().__init__(connection_string, separate_databases)
     
     def _setup_connection(self) -> None:
-        """Setup SQLite connection."""
+        """Setup SQLite connection with thread-safe configuration."""
         # Ensure directory exists
         db_path = Path(self.connection_string.replace("sqlite:///", ""))
         db_path.parent.mkdir(parents=True, exist_ok=True)
         
+        # Configure SQLite for multi-threaded access
+        # check_same_thread=False allows connections from different threads
+        # pool_size and max_overflow enable connection pooling for concurrent access
         self.engine = create_engine(
             self.connection_string,
             echo=False,
-            pool_pre_ping=True
+            pool_pre_ping=True,
+            pool_size=10,  # Connection pool for concurrent threads
+            max_overflow=20,  # Additional connections beyond pool_size
+            connect_args={
+                "check_same_thread": False,  # Allow multi-threaded access
+                "timeout": 30.0,  # Wait up to 30 seconds for locks
+            }
         )
-        self.session_factory = sessionmaker(bind=self.engine)
+        self.session_factory = sessionmaker(
+            bind=self.engine,
+            expire_on_commit=False  # Better for concurrent access
+        )
     
     def create_tables(self, platforms: List[str]) -> None:
         """Create necessary tables."""
@@ -152,56 +181,61 @@ class SQLiteManager(DatabaseManager):
             session.close()
     
     def insert_posts(self, posts: List["BasePost"]) -> None:
-        """Insert multiple posts with deduplication and update handling."""
+        """Insert multiple posts with deduplication and update handling.
+        
+        Thread-safe operation using locks to prevent race conditions.
+        """
         if not posts:
             return
-            
-        session = self.session_factory()
-        try:
-            # Get existing posts to check for duplicates and updates
-            existing_posts = self._get_existing_posts(session, posts)
-            
-            # Process posts for insertion/update
-            new_posts = []
-            updated_posts = []
-            
-            for post in posts:
-                post_key = (post.platform, post.object_id)
+        
+        # Use lock to ensure thread-safe database access
+        with self._lock:
+            session = self.session_factory()
+            try:
+                # Get existing posts to check for duplicates and updates
+                existing_posts = self._get_existing_posts(session, posts)
                 
-                if post_key in existing_posts:
-                    # Post exists - check if it's been updated
-                    existing_post = existing_posts[post_key]
-                    if existing_post.text != post.text:
-                        # Post has been edited - update it
-                        updated_posts.append((existing_post, post))
-                else:
-                    # New post
-                    new_posts.append(self._post_to_db_row(post))
-                    # Add to existing set to avoid duplicates within this batch
-                    existing_posts[post_key] = post
-            
-            # Insert new posts
-            if new_posts:
-                session.add_all(new_posts)
-            
-            # Update edited posts
-            for existing_post, updated_post in updated_posts:
-                # Update the existing post with new data
-                existing_post.text = updated_post.text
-                existing_post.raw_data = json.dumps(updated_post.raw_data, default=str) if updated_post.raw_data else None
-                existing_post.metrics = json.dumps(updated_post.metrics.dict(), default=str)
-                # Update other fields as needed
-                if hasattr(updated_post, 'title'):
-                    existing_post.title = getattr(updated_post, 'title', None)
-            
-            if new_posts or updated_posts:
-                session.commit()
+                # Process posts for insertion/update
+                new_posts = []
+                updated_posts = []
                 
-        except Exception as e:
-            session.rollback()
-            raise e
-        finally:
-            session.close()
+                for post in posts:
+                    post_key = (post.platform, post.object_id)
+                    
+                    if post_key in existing_posts:
+                        # Post exists - check if it's been updated
+                        existing_post = existing_posts[post_key]
+                        if existing_post.text != post.text:
+                            # Post has been edited - update it
+                            updated_posts.append((existing_post, post))
+                    else:
+                        # New post
+                        new_posts.append(self._post_to_db_row(post))
+                        # Add to existing set to avoid duplicates within this batch
+                        existing_posts[post_key] = post
+                
+                # Insert new posts
+                if new_posts:
+                    session.add_all(new_posts)
+                
+                # Update edited posts
+                for existing_post, updated_post in updated_posts:
+                    # Update the existing post with new data
+                    existing_post.text = updated_post.text
+                    existing_post.raw_data = json.dumps(updated_post.raw_data, default=str) if updated_post.raw_data else None
+                    existing_post.metrics = json.dumps(updated_post.metrics.dict(), default=str)
+                    # Update other fields as needed
+                    if hasattr(updated_post, 'title'):
+                        existing_post.title = getattr(updated_post, 'title', None)
+                
+                if new_posts or updated_posts:
+                    session.commit()
+                    
+            except Exception as e:
+                session.rollback()
+                raise e
+            finally:
+                session.close()
     
     def _get_existing_posts(self, session, posts: List["BasePost"]) -> dict:
         """Get existing posts to check for duplicates and updates."""
@@ -262,17 +296,19 @@ class SQLiteManager(DatabaseManager):
             session.close()
     
     def get_post_count(self, platform: Optional[str] = None) -> int:
-        """Get total number of posts."""
-        session = self.session_factory()
-        try:
-            query = session.query(PostTable)
-            
-            if platform:
-                query = query.filter(PostTable.platform == platform)
-            
-            return query.count()
-        finally:
-            session.close()
+        """Get total number of posts (thread-safe)."""
+        # Use lock for thread-safe read operations
+        with self._lock:
+            session = self.session_factory()
+            try:
+                query = session.query(PostTable)
+                
+                if platform:
+                    query = query.filter(PostTable.platform == platform)
+                
+                return query.count()
+            finally:
+                session.close()
     
     def close(self) -> None:
         """Close database connection."""

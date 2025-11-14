@@ -1,7 +1,7 @@
 # SocFlow Makefile
 # Easy commands for development and deployment
 
-.PHONY: help install clean run collect stats export config setup-env setup-config
+.PHONY: help install clean run collect stats export config setup-env setup-config test test-cov test-fast
 
 # Default target
 help:
@@ -34,6 +34,14 @@ help:
 	@echo "  setup-config    - Setup configuration files"
 	@echo "  setup-credentials - Show how to configure API credentials"
 	@echo "  setup-db        - Create database tables"
+	@echo ""
+	@echo "Testing:"
+	@echo "  test           - Run all tests"
+	@echo "  test-cov       - Run tests with coverage report"
+	@echo "  test-fast      - Run fast tests (skip slow tests)"
+	@echo "  test-database  - Run database tests only"
+	@echo "  test-concurrency - Run concurrency tests only"
+	@echo "  test-integration - Run integration tests only"
 
 # Project setup
 setup: install setup-env setup-config
@@ -202,4 +210,30 @@ quick-start: setup
 	@echo "2. Run 'make collect-reddit' to test Reddit collection"
 	@echo "3. Run 'make stats' to see collected data"
 	@echo "4. Run 'make export-json' to export your data"
+
+# Testing
+test:
+	@echo "🧪 Running test suite..."
+	uv run pytest
+
+test-cov:
+	@echo "🧪 Running tests with coverage..."
+	uv run pytest --cov=src --cov-report=html --cov-report=term
+	@echo "📊 Coverage report generated in htmlcov/"
+
+test-fast:
+	@echo "🧪 Running fast tests (excluding slow tests)..."
+	uv run pytest -m "not slow"
+
+test-database:
+	@echo "🧪 Running database tests..."
+	uv run pytest tests/test_database.py -v
+
+test-concurrency:
+	@echo "🧪 Running concurrency tests..."
+	uv run pytest tests/test_concurrency.py -v
+
+test-integration:
+	@echo "🧪 Running integration tests..."
+	uv run pytest tests/test_integration.py -v
 

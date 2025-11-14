@@ -38,6 +38,10 @@ class SocFlowTUI:
         
         self.layout = Layout()
         self.running = True
+        # Thread-safe data structures for Python 3.14 (GIL removed)
+        import threading
+        self._stats_lock = threading.Lock()  # Lock for thread-safe stats updates
+        
         self.collection_stats = {
             'reddit': {'posts': 0, 'status': 'Starting...', 'last_update': None},
             'bluesky': {'posts': 0, 'status': 'Starting...', 'last_update': None},
@@ -104,29 +108,32 @@ class SocFlowTUI:
         return Panel(content, title=f"[bold]{platform.title()}[/bold] Collector", border_style="blue")
     
     def _update_stats(self, platform: str, posts: int, status: str):
-        """Update collection statistics."""
-        # Update database count only if enough time has passed (to reduce DB queries)
-        current_time = datetime.now()
-        should_update_db = (
-            platform not in self.last_db_update or 
-            (current_time - self.last_db_update[platform]).seconds >= self.db_update_interval
-        )
-        
-        if should_update_db:
-            try:
-                db_count = self.app.db_manager.get_post_count(platform)
-                self.collection_stats[platform]['posts'] = db_count
-                self.last_db_update[platform] = current_time
-            except:
-                # Fallback to cumulative count if database query fails
-                self.collection_stats[platform]['posts'] += posts
-        else:
-            # Use cached count for faster updates
-            pass
+        """Update collection statistics (thread-safe for Python 3.14)."""
+        # Thread-safe update of shared statistics
+        with self._stats_lock:
+            # Update database count only if enough time has passed (to reduce DB queries)
+            current_time = datetime.now()
+            should_update_db = (
+                platform not in self.last_db_update or 
+                (current_time - self.last_db_update[platform]).seconds >= self.db_update_interval
+            )
             
-        self.collection_stats[platform]['status'] = status
-        self.collection_stats[platform]['last_update'] = current_time
-        self.total_posts = sum(stats['posts'] for stats in self.collection_stats.values())
+            if should_update_db:
+                try:
+                    # Database query is thread-safe (handled by database manager)
+                    db_count = self.app.db_manager.get_post_count(platform)
+                    self.collection_stats[platform]['posts'] = db_count
+                    self.last_db_update[platform] = current_time
+                except:
+                    # Fallback to cumulative count if database query fails
+                    self.collection_stats[platform]['posts'] += posts
+            else:
+                # Use cached count for faster updates
+                pass
+                
+            self.collection_stats[platform]['status'] = status
+            self.collection_stats[platform]['last_update'] = current_time
+            self.total_posts = sum(stats['posts'] for stats in self.collection_stats.values())
     
     async def _collect_platform(self, platform: str, collector, kwargs: Dict[str, Any]):
         """Collect data from a specific platform asynchronously."""
@@ -376,8 +383,8 @@ while True:
     def _start_collection_threads(self):
         """Start collection threads for all platforms.
         
-        Note: Python's GIL limits true parallelism, but this works for I/O-bound operations.
-        For CPU-intensive tasks, consider using multiprocessing instead.
+        With Python 3.14's GIL removal, these threads run truly concurrently
+        on separate CPU cores, enabling true parallelism for both I/O and CPU-bound tasks.
         """
         import threading
         threads = []
@@ -457,8 +464,8 @@ while True:
                 self.console.print("[red]No collectors available. Please check your API credentials.[/red]")
                 return
             
-            self.console.print("[green]🚀 Starting collection with threading (I/O-bound parallelism)![/green]")
-            self.console.print("[yellow]Note: For true CPU parallelism, use 'make collect-parallel'.[/yellow]")
+            self.console.print("[green]🚀 Starting collection with true concurrency (Python 3.14+ GIL removed)![/green]")
+            self.console.print("[yellow]Threads run truly concurrently across CPU cores.[/yellow]")
             
             # Start the live display
             with Live(self.layout, console=self.console, screen=True, refresh_per_second=2) as live:

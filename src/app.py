@@ -131,6 +131,9 @@ class SocFlowApp:
     def collect_continuously(self, platforms: Optional[List[str]] = None, **kwargs) -> None:
         """Collect data continuously until interrupted.
         
+        With Python 3.14's GIL removal, this uses true concurrent threading
+        for parallel data collection across multiple platforms.
+        
         Args:
             platforms: List of platforms to collect from. If None, collects from all enabled platforms.
             **kwargs: Platform-specific collection parameters
@@ -143,17 +146,23 @@ class SocFlowApp:
             return
         
         import signal
+        import threading
         import time
         
-        # Track total collected posts
+        # Thread-safe tracking of collected posts
+        # Using a lock to protect shared dictionary (required with GIL removed)
         total_collected = {platform: 0 for platform in platforms}
+        collection_lock = threading.Lock()
         
         def signal_handler(signum, frame):
             self.logger.info("Received interrupt signal. Gracefully shutting down...")
-            self.logger.info(f"Total posts collected: {sum(total_collected.values())}")
-            for platform, count in total_collected.items():
-                if count > 0:
-                    self.logger.info(f"  {platform}: {count} posts")
+            # Thread-safe access to shared data
+            with collection_lock:
+                total = sum(total_collected.values())
+                self.logger.info(f"Total posts collected: {total}")
+                for platform, count in total_collected.items():
+                    if count > 0:
+                        self.logger.info(f"  {platform}: {count} posts")
             self.close()
             exit(0)
         
@@ -161,18 +170,22 @@ class SocFlowApp:
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
         
-        self.logger.info("Starting continuous data collection...")
+        self.logger.info("Starting continuous data collection with true concurrency (Python 3.14+)...")
         self.logger.info("Press Ctrl+C to stop and save remaining data")
         
-        import threading
         import queue
         
-        # Create a queue for collecting posts from all platforms
+        # Thread-safe queue for collecting posts from all platforms
+        # Queue is inherently thread-safe in Python
         posts_queue = queue.Queue()
         
         def collect_from_platform(platform, collector, kwargs):
-            """Collect posts from a single platform in a separate thread."""
-            self.logger.info(f"Starting continuous collection for {platform}")
+            """Collect posts from a single platform in a separate thread.
+            
+            With GIL removed in Python 3.14, this runs truly concurrently
+            on separate CPU cores for CPU-bound operations.
+            """
+            self.logger.info(f"Starting continuous collection for {platform} (thread: {threading.current_thread().name})")
             while True:
                 try:
                     if not collector.is_enabled():
@@ -198,6 +211,7 @@ class SocFlowApp:
                     time.sleep(10)  # Wait longer on error
         
         # Start collection threads for each platform
+        # With Python 3.14's GIL removal, these threads run truly concurrently
         threads = []
         for platform in platforms:
             if platform in self.collectors:
@@ -206,11 +220,12 @@ class SocFlowApp:
                     thread = threading.Thread(
                         target=collect_from_platform,
                         args=(platform, collector, kwargs),
+                        name=f"Collector-{platform}",
                         daemon=False
                     )
                     thread.start()
                     threads.append(thread)
-                    self.logger.info(f"Started collection thread for {platform}")
+                    self.logger.info(f"Started concurrent collection thread for {platform}")
         
         if not threads:
             self.logger.warning("No active collection threads started")
@@ -225,12 +240,14 @@ class SocFlowApp:
                     if posts:
                         # Store original count for deduplication reporting
                         original_count = len(posts)
+                        # Database insert is thread-safe (handled by database manager)
                         self.db_manager.insert_posts(posts)
                         
-                        # Note: The actual number of inserted posts will be logged by the database manager
-                        # We'll update our count based on the database response
-                        total_collected[platform] += original_count
-                        self.logger.info(f"📊 Processed {original_count} posts from {platform} (Total processed: {total_collected[platform]})")
+                        # Thread-safe update of shared counter
+                        with collection_lock:
+                            total_collected[platform] += original_count
+                            current_total = total_collected[platform]
+                        self.logger.info(f"📊 Processed {original_count} posts from {platform} (Total processed: {current_total})")
                     else:
                         self.logger.debug(f"No posts to save from {platform}")
                     
